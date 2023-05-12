@@ -179,6 +179,78 @@ Main_DataFrame$SaleType <- as.factor(Main_DataFrame$SaleType)
 Main_DataFrame$SaleCondition <- as.factor(Main_DataFrame$SaleCondition)
 
 ##################################
+### ---- Character Data ------ ###
+##################################
+cat('There are', length(names(Main_DataFrame[,sapply(Main_DataFrame, is.character)])), 'column with char values')
+names(Main_DataFrame[,sapply(Main_DataFrame, is.character)])
+#################################################################################################################
+##########################  Street  ##########################
+Main_DataFrame$Street<-as.integer(revalue(Main_DataFrame$Street, c('Grvl'=0, 'Pave'=1)))
+
+##########################  Paved Drive  ##########################
+Main_DataFrame$PavedDrive<-as.integer(revalue(Main_DataFrame$PavedDrive, c('N'=0, 'P'=1, 'Y'=2)))
+
+##########################  Land Contour , Land Slope  ##########################
+Main_DataFrame$LandContour <- as.factor(Main_DataFrame$LandContour)
+Main_DataFrame$LandSlope<-as.integer(revalue(Main_DataFrame$LandSlope, c('Sev'=0, 'Mod'=1, 'Gtl'=2)))
+
+##########################  Neighborhood , Condition1 , Condition2  ##########################
+Main_DataFrame$Neighborhood <- as.factor(Main_DataFrame$Neighborhood)
+Main_DataFrame$Condition1 <- as.factor(Main_DataFrame$Condition1)
+Main_DataFrame$Condition2 <- as.factor(Main_DataFrame$Condition2)
+
+##########################  Bldg Type , House Style  ##########################
+Main_DataFrame$BldgType <- as.factor(Main_DataFrame$BldgType)
+Main_DataFrame$HouseStyle <- as.factor(Main_DataFrame$HouseStyle)
+
+##########################  Roof  ##########################
+Main_DataFrame$RoofStyle <- as.factor(Main_DataFrame$RoofStyle)
+Main_DataFrame$RoofMatl <- as.factor(Main_DataFrame$RoofMatl)
+
+##########################  Foundation  ##########################
+Main_DataFrame$Foundation <- as.factor(Main_DataFrame$Foundation)
+
+##########################  Heating , Heating QC  ##########################
+Main_DataFrame$Heating <- as.factor(Main_DataFrame$Heating)
+
+Main_DataFrame$HeatingQC<-as.integer(revalue(Main_DataFrame$HeatingQC,
+                                               c("Ex" = 5, "Gd" = 4, "TA" = 3, "Fa" = 2,"Po" = 1)))
+
+##########################  Central Air  ##########################
+Main_DataFrame$CentralAir<-as.integer(revalue(Main_DataFrame$CentralAir, c('N'=0, 'Y'=1)))
+
+##########################  MoSold  ##########################
+Main_DataFrame$MoSold <- as.factor(Main_DataFrame$MoSold)
+
+##########################  MSSubClass  ##########################
+Main_DataFrame$MSSubClass <- as.factor(Main_DataFrame$MSSubClass)
+
+Main_DataFrame$MSSubClass<-revalue(Main_DataFrame$MSSubClass,
+                                   c('20'='1-STORY 1946 & NEWER ALL STYLES',
+                                     '30'='1-STORY 1945 & OLDER',
+                                     '40'='1-STORY W/FINISHED ATTIC ALL AGES',
+                                     '45'='1-1/2 STORY - UNFINISHED ALL AGES',
+                                     '50'='1-1/2 STORY FINISHED ALL AGES',
+                                     '60'='2-STORY 1946 & NEWER',
+                                     '70'='2-STORY 1945 & OLDER',
+                                     '75'='2-1/2 STORY ALL AGES',
+                                     '80'='SPLIT OR MULTI-LEVEL',
+                                     '85'='SPLIT FOYER',
+                                     '90'='DUPLEX - ALL STYLES AND AGES',
+                                     '120'='1-STORY PUD (Planned Unit Development) - 1946 & NEWER',
+                                     '150'='1-1/2 STORY PUD - ALL AGES',
+                                     '160'='2-STORY PUD - 1946 & NEWER',
+                                     '180'='PUD - MULTILEVEL - INCL SPLIT LEV/FOYER',
+                                     '190'='2 FAMILY CONVERSION - ALL STYLES AND AGES'))
+
+############################################################################################################
+############################################################################################################
+cat('There are', length(which(sapply(Main_DataFrame, is.numeric))), 'numeric variables, and',
+    length(which(sapply(Main_DataFrame, is.factor))), 'categoric variables')
+############################################################################################################
+############################################################################################################
+
+##################################
 ### ------ Correlation ------- ###
 ##################################
 Numeric_Data <- which(sapply(Main_DataFrame, is.numeric)) #index vector numeric variables
