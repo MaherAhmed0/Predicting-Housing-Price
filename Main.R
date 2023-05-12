@@ -8,6 +8,8 @@ Test_Data$SalePrice <- NA
 Main_DataFrame <- rbind(Train_Data, Test_Data)
 
 rm(Train_Data, Test_Data)
+
+Numeric_Vars_Names <- names(which(sapply(Main_DataFrame, is.numeric)))
 ##################################
 ###------ Exploring Data ------###
 ##################################
@@ -226,22 +228,12 @@ Main_DataFrame$MoSold <- as.factor(Main_DataFrame$MoSold)
 Main_DataFrame$MSSubClass <- as.factor(Main_DataFrame$MSSubClass)
 
 Main_DataFrame$MSSubClass<-revalue(Main_DataFrame$MSSubClass,
-                                   c('20'='1-STORY 1946 & NEWER ALL STYLES',
-                                     '30'='1-STORY 1945 & OLDER',
-                                     '40'='1-STORY W/FINISHED ATTIC ALL AGES',
-                                     '45'='1-1/2 STORY - UNFINISHED ALL AGES',
-                                     '50'='1-1/2 STORY FINISHED ALL AGES',
-                                     '60'='2-STORY 1946 & NEWER',
-                                     '70'='2-STORY 1945 & OLDER',
-                                     '75'='2-1/2 STORY ALL AGES',
-                                     '80'='SPLIT OR MULTI-LEVEL',
-                                     '85'='SPLIT FOYER',
-                                     '90'='DUPLEX - ALL STYLES AND AGES',
-                                     '120'='1-STORY PUD (Planned Unit Development) - 1946 & NEWER',
-                                     '150'='1-1/2 STORY PUD - ALL AGES',
-                                     '160'='2-STORY PUD - 1946 & NEWER',
-                                     '180'='PUD - MULTILEVEL - INCL SPLIT LEV/FOYER',
-                                     '190'='2 FAMILY CONVERSION - ALL STYLES AND AGES'))
+                                   c('20'='1 story 1946+', '30'='1 story 1945-', '40'='1 story unf attic',
+                                     '45'='1,5 story unf', '50'='1,5 story fin', '60'='2 story 1946+',
+                                     '70'='2 story 1945-', '75'='2,5 story all ages', '80'='split/multi level',
+                                     '85'='split foyer', '90'='duplex all style/age', '120'='1 story PUD 1946+',
+                                     '150'='1,5 story PUD all', '160'='2 story PUD 1946+', '180'='PUD multilevel',
+                                     '190'='2 family conversion'))
 
 ############################################################################################################
 ############################################################################################################
@@ -251,10 +243,24 @@ cat('There are', length(which(sapply(Main_DataFrame, is.numeric))), 'numeric var
 ############################################################################################################
 
 ##################################
+### -- Feature Engineering --- ###
+##################################
+Main_DataFrame$Total_Bathrooms <- Main_DataFrame$FullBath + (Main_DataFrame$HalfBath*0.5) +
+                               Main_DataFrame$BsmtFullBath + (Main_DataFrame$BsmtHalfBath*0.5)
+
+Main_DataFrame$Age <- as.numeric(Main_DataFrame$YrSold)-Main_DataFrame$YearRemodAdd
+
+Main_DataFrame$Is_New <- ifelse(Main_DataFrame$YrSold == Main_DataFrame$YearBuilt, 1, 0)
+Main_DataFrame$YrSold <- as.factor(Main_DataFrame$YrSold)
+
+Main_DataFrame$Total_Sq_Feet_ <- Main_DataFrame$GrLivArea + Main_DataFrame$TotalBsmtSF
+
+
+##################################
 ### ------ Correlation ------- ###
 ##################################
 Numeric_Data <- which(sapply(Main_DataFrame, is.numeric)) #index vector numeric variables
-# numericVarNames <- names(Numeric_Data) #saving names vector for use later on
+
 cat('There are', length(Numeric_Data), 'numeric variables')
 
 All_Num_Data <- Main_DataFrame[, Numeric_Data]
@@ -263,7 +269,7 @@ Corr_Num_Data <- cor(All_Num_Data, use="pairwise.complete.obs")
 Data_Sorted <- as.matrix(sort(Corr_Num_Data[,'SalePrice'], decreasing = TRUE))
 
 # Select only high correlations
-High_Corr <- names(which(apply(Data_Sorted, 1, function(x) abs(x) > 0.4)))
+High_Corr <- names(which(apply(Data_Sorted, 1, function(x) abs(x) > 0.5)))
 Corr_Table <- Corr_Num_Data[High_Corr, High_Corr]
 
 C <- cor(Corr_Table)
@@ -274,5 +280,82 @@ corrplot(C, method="pie")
 
 corrplot(C, method="color")
 ################################################################################################
+Drop_Cols <- c('YearRemodAdd', 'GarageYrBlt', 'GarageArea', 'GarageCond', 'TotalBsmtSF',
+               'TotalRmsAbvGrd', 'BsmtFinSF1')
+
+Main_DataFrame <- Main_DataFrame[,!(names(Main_DataFrame) %in% Drop_Cols)]
+
+################################ Out liers ################################
+Main_DataFrame <- Main_DataFrame[-c(524, 1299),]
 
 ################################################################################################
+Numeric_Vars_Names <- Numeric_Vars_Names[!(Numeric_Vars_Names %in% c('MoSold', 'YrSold', 'OverallQual',
+                                                                     'MSSubClass', 'OverallCond'))]
+
+Numeric_Vars_Names <- append(Numeric_Vars_Names, c('Age', 'Total_Bathrooms', 'Total_Sq_Feet_'))
+
+DF_Numeric <- Main_DataFrame[, names(Main_DataFrame) %in% Numeric_Vars_Names]
+
+DF_Factors <- Main_DataFrame[, !(names(Main_DataFrame) %in% Numeric_Vars_Names)]
+DF_Factors <- DF_Factors[, names(DF_Factors) != 'SalePrice']
+
+cat('There are', length(DF_Numeric), 'numeric variables, and', length(DF_Factors), 'factor variables')
+
+
+DFdummies <- as.data.frame(model.matrix(~.-1, DF_Factors))
+
+
+ZerocolTest <- which(colSums(DFdummies[(nrow(Main_DataFrame[!is.na(Main_DataFrame$SalePrice),])+1):nrow(Main_DataFrame),])==0)
+colnames(DFdummies[ZerocolTest])
+
+DFdummies <- DFdummies[,-ZerocolTest]
+
+ZerocolTrain <- which(colSums(DFdummies[1:nrow(Main_DataFrame[!is.na(Main_DataFrame$SalePrice),]),])==0)
+colnames(DFdummies[ZerocolTrain])
+
+DFdummies <- DFdummies[,-ZerocolTrain]
+
+fewOnes <- which(colSums(DFdummies[1:nrow(Main_DataFrame[!is.na(Main_DataFrame$SalePrice),]),])<10)
+colnames(DFdummies[fewOnes])
+
+DFdummies <- DFdummies[,-fewOnes]
+
+################################################################################################
+All <- cbind(DF_Numeric, DFdummies) 
+
+
+Train_Data <- All[!is.na(Main_DataFrame$SalePrice),]
+Train_Data$Id <- NULL
+# Train_Data$MSSubClass <- NULL
+Test_Data <- All[is.na(Main_DataFrame$SalePrice),]
+Test_Data$SalePrice <- NULL
+# Test_Data$MSSubClass <- NULL
+################################################################################################
+##################################
+### -------- Modeling -------- ###
+##################################
+
+lm_model <- lm(SalePrice ~ ., data = Train_Data)
+
+# summary(lm_model)
+prediction_lm <- predict(lm_model, Test_Data)
+
+solution_lm <- data.frame(Id = Test_Data$Id, SalePrice = prediction_lm)
+
+write.csv(solution_lm, file = 'LM_model.csv', row.names = F)
+
+
+
+
+y <- Train_Data$SalePrice
+x_cols <- grep("^SalePrice$", colnames(Train_Data), invert = TRUE)
+x <- Train_Data[, x_cols] 
+
+rf_model <- randomForest(x, y)
+
+rf_pred <- predict(rf_model, Test_Data)
+
+solution_rf <- data.frame(Id = Test_Data$Id, SalePrice = rf_pred)
+
+write.csv(solution_rf, file = 'RF_model.csv', row.names = F)
+
