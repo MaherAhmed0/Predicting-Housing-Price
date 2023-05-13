@@ -9,7 +9,7 @@ Main_DataFrame <- rbind(Train_Data, Test_Data)
 
 rm(Train_Data, Test_Data)
 
-Numeric_Vars_Names <- names(which(sapply(Main_DataFrame, is.numeric)))
+# Numeric_Vars_Names <- names(which(sapply(Main_DataFrame, is.numeric)))
 ##################################
 ###------ Exploring Data ------###
 ##################################
@@ -255,6 +255,7 @@ Main_DataFrame$YrSold <- as.factor(Main_DataFrame$YrSold)
 
 Main_DataFrame$Total_Sq_Feet_ <- Main_DataFrame$GrLivArea + Main_DataFrame$TotalBsmtSF
 
+Main_DataFrame$Total_Home_Quality = Main_DataFrame$OverallQual + Main_DataFrame$OverallCond
 
 ##################################
 ### ------ Correlation ------- ###
@@ -289,10 +290,21 @@ Main_DataFrame <- Main_DataFrame[,!(names(Main_DataFrame) %in% Drop_Cols)]
 Main_DataFrame <- Main_DataFrame[-c(524, 1299),]
 
 ################################################################################################
-Numeric_Vars_Names <- Numeric_Vars_Names[!(Numeric_Vars_Names %in% c('MoSold', 'YrSold', 'OverallQual',
-                                                                     'MSSubClass', 'OverallCond'))]
+names(Main_DataFrame)
 
-Numeric_Vars_Names <- append(Numeric_Vars_Names, c('Age', 'Total_Bathrooms', 'Total_Sq_Feet_'))
+Numeric_Vars_Names <- names(which(sapply(Main_DataFrame, is.numeric)))
+
+Numeric_Vars_Names <- Numeric_Vars_Names[!(Numeric_Vars_Names %in% c('MSSubClass','MSZoning','LandContour',
+                                                                     'Neighborhood','Condition1','Condition2',
+                                                                     'BldgType','HouseStyle','RoofStyle',
+                                                                     'RoofMatl','Exterior1st','Exterior2nd',
+                                                                     'Foundation','Heating','Electrical',
+                                                                     'MoSold','YrSold','SaleType','SaleCondition'))]
+
+#Numeric_Vars_Names <- Numeric_Vars_Names[!(Numeric_Vars_Names %in% c('MoSold', 'YrSold', 'OverallQual',
+#                                                                     'MSSubClass', 'OverallCond'))]
+# Numeric_Vars_Names <- append(Numeric_Vars_Names, c('Age', 'Total_Bathrooms',
+#                                                   'Total_Sq_Feet_', 'Total_Home_Quality'))
 
 DF_Numeric <- Main_DataFrame[, names(Main_DataFrame) %in% Numeric_Vars_Names]
 
@@ -301,7 +313,7 @@ DF_Factors <- DF_Factors[, names(DF_Factors) != 'SalePrice']
 
 cat('There are', length(DF_Numeric), 'numeric variables, and', length(DF_Factors), 'factor variables')
 
-
+###  One hot encoding  ###
 DFdummies <- as.data.frame(model.matrix(~.-1, DF_Factors))
 
 
@@ -323,39 +335,41 @@ DFdummies <- DFdummies[,-fewOnes]
 ################################################################################################
 All <- cbind(DF_Numeric, DFdummies) 
 
-
 Train_Data <- All[!is.na(Main_DataFrame$SalePrice),]
 Train_Data$Id <- NULL
-# Train_Data$MSSubClass <- NULL
+
 Test_Data <- All[is.na(Main_DataFrame$SalePrice),]
 Test_Data$SalePrice <- NULL
-# Test_Data$MSSubClass <- NULL
+
 ################################################################################################
 ##################################
 ### -------- Modeling -------- ###
 ##################################
 
-lm_model <- lm(SalePrice ~ ., data = Train_Data)
-
-# summary(lm_model)
-prediction_lm <- predict(lm_model, Test_Data)
-
-solution_lm <- data.frame(Id = Test_Data$Id, SalePrice = prediction_lm)
-
-write.csv(solution_lm, file = 'LM_model.csv', row.names = F)
-
-
-
-
-y <- Train_Data$SalePrice
+################## Random Forest ##################
 x_cols <- grep("^SalePrice$", colnames(Train_Data), invert = TRUE)
 x <- Train_Data[, x_cols] 
 
-rf_model <- randomForest(x, y)
+rf_model <- randomForest(x, Train_Data$SalePrice)
 
 rf_pred <- predict(rf_model, Test_Data)
 
 solution_rf <- data.frame(Id = Test_Data$Id, SalePrice = rf_pred)
 
-write.csv(solution_rf, file = 'RF_model.csv', row.names = F)
+write.csv(solution_rf, file = 'RF_3_model.csv', row.names = F)
+
+################## Gradient Boosting ##################
+gbm_model <- gbm(SalePrice ~ ., data = Train_Data, n.trees = 1000, interaction.depth = 4, shrinkage = 0.01, 
+                 n.minobsinnode = 10, cv.folds = 5, n.cores = 4, verbose = FALSE)
+
+gbm_pred <- predict(gbm_model, newdata = Test_Data, n.trees = gbm_model$best.trees)
+
+solution_gbm <- data.frame(Id = Test_Data$Id, SalePrice = gbm_pred)
+
+write.csv(solution_gbm, file = 'GBM_model.csv', row.names = FALSE)
+
+################## Model_3 ##################
+
+
+################## Model_4 ##################
 
