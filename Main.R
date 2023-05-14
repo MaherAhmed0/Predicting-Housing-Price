@@ -9,7 +9,6 @@ Main_DataFrame <- rbind(Train_Data, Test_Data)
 
 rm(Train_Data, Test_Data)
 
-# Numeric_Vars_Names <- names(which(sapply(Main_DataFrame, is.numeric)))
 ##################################
 ###------ Exploring Data ------###
 ##################################
@@ -61,11 +60,12 @@ Main_DataFrame$LotConfig <- as.integer(Main_DataFrame$LotConfig)
 cols_0 <- c('GarageYrBlt', 'GarageArea', 'GarageCars')
 
 Main_DataFrame[cols_0][is.na(Main_DataFrame[cols_0])] <- 0
-
+rm(cols_0)
 ##########################  GarageType, GarageFinish, GarageQual, GarageCond   ##########################
 cols_None <- c('GarageType', 'GarageFinish', 'GarageQual', 'GarageCond')
 
 Main_DataFrame[cols_None][is.na(Main_DataFrame[cols_None])] <- 'None'
+rm(cols_None)
 
 average_saleprice <- aggregate(SalePrice ~ GarageType, data = Main_DataFrame, FUN = mean)
 ggplot(average_saleprice, aes(x = GarageType, y = SalePrice)) +
@@ -101,6 +101,7 @@ Main_DataFrame$BsmtQual[c(2218, 2219)] <- names(sort(-table(Main_DataFrame$BsmtQ
 Basement_cols_None <- c('BsmtQual', 'BsmtCond', 'BsmtExposure', 'BsmtFinType1', 'BsmtFinType2')
 
 Main_DataFrame[Basement_cols_None][is.na(Main_DataFrame[Basement_cols_None])] <- 'None'
+rm(Basement_cols_None)
 
 Main_DataFrame$BsmtQual<-as.integer(revalue(Main_DataFrame$BsmtQual,
                                               c("Ex" = 5, "Gd" = 4, "TA" = 3, "Fa" = 2,"Po" = 1, "None" = 0)))
@@ -135,6 +136,7 @@ ggplot(average_saleprice_2, aes(x = MasVnrType, y = SalePrice)) +
   xlab("MasVnr Type") +
   ylab("Average Sale Price") +
   ggtitle("Average Sale Price by MasVnr Type")
+rm(average_saleprice, average_saleprice_2)
 
 Main_DataFrame$MasVnrType<-as.integer(revalue(Main_DataFrame$MasVnrType,
                                                 c('None'=0, 'BrkCmn'=0, 'BrkFace'=1, 'Stone'=2)))
@@ -243,21 +245,6 @@ cat('There are', length(which(sapply(Main_DataFrame, is.numeric))), 'numeric var
 ############################################################################################################
 
 ##################################
-### -- Feature Engineering --- ###
-##################################
-Main_DataFrame$Total_Bathrooms <- Main_DataFrame$FullBath + (Main_DataFrame$HalfBath*0.5) +
-                               Main_DataFrame$BsmtFullBath + (Main_DataFrame$BsmtHalfBath*0.5)
-
-Main_DataFrame$Age <- as.numeric(Main_DataFrame$YrSold)-Main_DataFrame$YearRemodAdd
-
-Main_DataFrame$Is_New <- ifelse(Main_DataFrame$YrSold == Main_DataFrame$YearBuilt, 1, 0)
-Main_DataFrame$YrSold <- as.factor(Main_DataFrame$YrSold)
-
-Main_DataFrame$Total_Sq_Feet_ <- Main_DataFrame$GrLivArea + Main_DataFrame$TotalBsmtSF
-
-Main_DataFrame$Total_Home_Quality = Main_DataFrame$OverallQual + Main_DataFrame$OverallCond
-
-##################################
 ### ------ Correlation ------- ###
 ##################################
 Numeric_Data <- which(sapply(Main_DataFrame, is.numeric)) #index vector numeric variables
@@ -280,60 +267,85 @@ corrplot(C, method="number")
 corrplot(C, method="pie")
 
 corrplot(C, method="color")
+
+rm(C, Corr_Num_Data, Corr_Table, Data_Sorted, High_Corr, All_Num_Data, Numeric_Data)
+
+##################################
+### -- Feature Engineering --- ###
+##################################
+Main_DataFrame$Total_Bathrooms <- Main_DataFrame$FullBath + (Main_DataFrame$HalfBath*0.5) +
+                               Main_DataFrame$BsmtFullBath + (Main_DataFrame$BsmtHalfBath*0.5)
+
+Main_DataFrame$Age <- as.numeric(Main_DataFrame$YrSold)-Main_DataFrame$YearRemodAdd
+
+Main_DataFrame$Is_New <- ifelse(Main_DataFrame$YrSold == Main_DataFrame$YearBuilt, 1, 0)
+Main_DataFrame$YrSold <- as.factor(Main_DataFrame$YrSold)
+
+Main_DataFrame$Total_Sq_Feet_ <- Main_DataFrame$GrLivArea + Main_DataFrame$TotalBsmtSF
+
+Main_DataFrame$Total_Home_Quality = Main_DataFrame$OverallQual + Main_DataFrame$OverallCond
+
 ################################################################################################
 Drop_Cols <- c('YearRemodAdd', 'GarageYrBlt', 'GarageArea', 'GarageCond', 'TotalBsmtSF',
-               'TotalRmsAbvGrd', 'BsmtFinSF1')
+               'TotalRmsAbvGrd', 'BsmtFinSF1', 'X1stFlrSF')
 
 Main_DataFrame <- Main_DataFrame[,!(names(Main_DataFrame) %in% Drop_Cols)]
+rm(Drop_Cols)
 
 ################################ Out liers ################################
 Main_DataFrame <- Main_DataFrame[-c(524, 1299),]
 
 ################################################################################################
-names(Main_DataFrame)
+Numeric_Vars <- names(which(sapply(Main_DataFrame, is.numeric)))
 
-Numeric_Vars_Names <- names(which(sapply(Main_DataFrame, is.numeric)))
+DF_Numeric <- Main_DataFrame[, names(Main_DataFrame) %in% Numeric_Vars]
 
-Numeric_Vars_Names <- Numeric_Vars_Names[!(Numeric_Vars_Names %in% c('MSSubClass','MSZoning','LandContour',
-                                                                     'Neighborhood','Condition1','Condition2',
-                                                                     'BldgType','HouseStyle','RoofStyle',
-                                                                     'RoofMatl','Exterior1st','Exterior2nd',
-                                                                     'Foundation','Heating','Electrical',
-                                                                     'MoSold','YrSold','SaleType','SaleCondition'))]
-
-#Numeric_Vars_Names <- Numeric_Vars_Names[!(Numeric_Vars_Names %in% c('MoSold', 'YrSold', 'OverallQual',
-#                                                                     'MSSubClass', 'OverallCond'))]
-# Numeric_Vars_Names <- append(Numeric_Vars_Names, c('Age', 'Total_Bathrooms',
-#                                                   'Total_Sq_Feet_', 'Total_Home_Quality'))
-
-DF_Numeric <- Main_DataFrame[, names(Main_DataFrame) %in% Numeric_Vars_Names]
-
-DF_Factors <- Main_DataFrame[, !(names(Main_DataFrame) %in% Numeric_Vars_Names)]
-DF_Factors <- DF_Factors[, names(DF_Factors) != 'SalePrice']
+DF_Factors <- Main_DataFrame[, !(names(Main_DataFrame) %in% Numeric_Vars)]
 
 cat('There are', length(DF_Numeric), 'numeric variables, and', length(DF_Factors), 'factor variables')
 
-###  One hot encoding  ###
-DFdummies <- as.data.frame(model.matrix(~.-1, DF_Factors))
 
+normalize <- function(df) {
+  df_subset <- df[, !(names(df) %in% c("Id", "SalePrice"))]
+  
+  df_norm <- as.data.frame(lapply(df_subset, function(x) {
+    numerator <- x - min(x, na.rm = TRUE)
+    denominator <- max(x, na.rm = TRUE) - min(x, na.rm = TRUE)
+    return(numerator / denominator)
+  }))
+  
+  df_norm <- cbind(df["Id"], df_norm, df["SalePrice"])
+  return(df_norm)
+}
+DFnorm <- normalize(DF_Numeric)
 
-ZerocolTest <- which(colSums(DFdummies[(nrow(Main_DataFrame[!is.na(Main_DataFrame$SalePrice),])+1):nrow(Main_DataFrame),])==0)
-colnames(DFdummies[ZerocolTest])
+##########  One Hot Encoding  ##########
+DF_Dummies <- as.data.frame(model.matrix(~.-1, DF_Factors))
 
-DFdummies <- DFdummies[,-ZerocolTest]
+################## Remove the columns that did not appear in the (TEST) data from the Main_Data_Frame to ############ 
+################## ensure that the model is not trained on features that have no predictive power. ################## 
+Zero_Test_Cols <- which(colSums(DF_Dummies[(nrow(Main_DataFrame[!is.na(Main_DataFrame$SalePrice),]) + 1)
+                                       :nrow(Main_DataFrame),]) == 0)
+colnames(DF_Dummies[Zero_Test_Cols])
 
-ZerocolTrain <- which(colSums(DFdummies[1:nrow(Main_DataFrame[!is.na(Main_DataFrame$SalePrice),]),])==0)
-colnames(DFdummies[ZerocolTrain])
+DF_Dummies <- DF_Dummies[,-Zero_Test_Cols]
 
-DFdummies <- DFdummies[,-ZerocolTrain]
+################## Remove the columns that did not appear in the (TRAIN) data from the Main_Data_Frame to ########### 
+################## ensure that the model is not trained on features that have no predictive power. ################## 
+Zero_Train_Cols <- which(colSums(DF_Dummies[1:nrow(Main_DataFrame[!is.na(Main_DataFrame$SalePrice),]),]) == 0)
+colnames(DF_Dummies[Zero_Train_Cols])
 
-fewOnes <- which(colSums(DFdummies[1:nrow(Main_DataFrame[!is.na(Main_DataFrame$SalePrice),]),])<10)
-colnames(DFdummies[fewOnes])
+DF_Dummies <- DF_Dummies[,-Zero_Train_Cols]
 
-DFdummies <- DFdummies[,-fewOnes]
+################# Remove columns with very few NON-ZERO values in the Training data  ################## 
+Few_Non_Zero <- which(colSums(DF_Dummies[1:nrow(Main_DataFrame[!is.na(Main_DataFrame$SalePrice),]),]) < 15)
+colnames(DF_Dummies[Few_Non_Zero])
+
+DF_Dummies <- DF_Dummies[,-Few_Non_Zero]
 
 ################################################################################################
-All <- cbind(DF_Numeric, DFdummies) 
+All <- cbind(DFnorm, DF_Dummies) 
+rm(Numeric_Vars, DF_Factors, DF_Numeric, DF_Dummies, Few_Non_Zero, Zero_Test_Cols, Zero_Train_Cols, DFnorm)
 
 Train_Data <- All[!is.na(Main_DataFrame$SalePrice),]
 Train_Data$Id <- NULL
@@ -341,11 +353,16 @@ Train_Data$Id <- NULL
 Test_Data <- All[is.na(Main_DataFrame$SalePrice),]
 Test_Data$SalePrice <- NULL
 
+rm(Main_DataFrame, All)
 ################################################################################################
+
 ##################################
 ### -------- Modeling -------- ###
 ##################################
-
+RMSE <- function(x,y){
+  a <- sqrt(sum((log(x)-log(y))^2)/length(y))
+  return(a)
+}
 ################## Random Forest ##################
 x_cols <- grep("^SalePrice$", colnames(Train_Data), invert = TRUE)
 x <- Train_Data[, x_cols] 
@@ -356,17 +373,21 @@ rf_pred <- predict(rf_model, Test_Data)
 
 solution_rf <- data.frame(Id = Test_Data$Id, SalePrice = rf_pred)
 
-write.csv(solution_rf, file = 'RF_3_model.csv', row.names = F)
+write.csv(solution_rf, file = 'RF_4_1__2_model.csv', row.names = F)
+
+eval__ <- RMSE(rf_pred, Train_Data$SalePrice)
 
 ################## Gradient Boosting ##################
 gbm_model <- gbm(SalePrice ~ ., data = Train_Data, n.trees = 1000, interaction.depth = 4, shrinkage = 0.01, 
-                 n.minobsinnode = 10, cv.folds = 5, n.cores = 4, verbose = FALSE)
+                 n.minobsinnode = 10, cv.folds = 5, n.cores = 4, verbose = FALSE, distribution = 'gaussian')
 
 gbm_pred <- predict(gbm_model, newdata = Test_Data, n.trees = gbm_model$best.trees)
 
 solution_gbm <- data.frame(Id = Test_Data$Id, SalePrice = gbm_pred)
 
-write.csv(solution_gbm, file = 'GBM_model.csv', row.names = FALSE)
+write.csv(solution_gbm, file = 'GBM_2_1__Norm_model.csv', row.names = FALSE)
+
+eval__2 <- RMSE(gbm_pred, Train_Data$SalePrice)
 
 ################## Model_3 ##################
 
