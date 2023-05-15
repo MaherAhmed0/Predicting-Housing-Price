@@ -1,4 +1,15 @@
 ##################################
+###-------- Packages ----------###
+##################################
+library(plyr)
+library(corrplot)
+library(randomForest)
+library(ggplot2)
+library(gbm)
+library(psych)
+library(caret)
+
+##################################
 ###------- Import Data --------###
 ##################################
 Train_Data <- read.csv("train.csv", stringsAsFactors = F)
@@ -26,13 +37,7 @@ print("Missing or null values column wise")
 NA_Cols <- which(colSums(is.na(Main_DataFrame)) > 0)
 sort(colSums(sapply(Main_DataFrame[NA_Cols], is.na)), decreasing = TRUE)
 cat('There are', length(NA_Cols), 'columns with missing values')
-
-##################################
-###---- Analyzing features ----###
-##################################
-summary(Main_DataFrame$SalePrice)
-
-hist(Main_DataFrame$SalePrice)
+rm(NA_Cols)
 
 ##################################
 ###------- Missing Data -------###
@@ -187,7 +192,9 @@ Main_DataFrame$SaleCondition <- as.factor(Main_DataFrame$SaleCondition)
 ##################################
 cat('There are', length(names(Main_DataFrame[,sapply(Main_DataFrame, is.character)])), 'column with char values')
 names(Main_DataFrame[,sapply(Main_DataFrame, is.character)])
-#################################################################################################################
+############################################################################################################
+############################################################################################################
+
 ##########################  Street  ##########################
 Main_DataFrame$Street<-as.integer(revalue(Main_DataFrame$Street, c('Grvl'=0, 'Pave'=1)))
 
@@ -241,8 +248,25 @@ Main_DataFrame$MSSubClass<-revalue(Main_DataFrame$MSSubClass,
 ############################################################################################################
 cat('There are', length(which(sapply(Main_DataFrame, is.numeric))), 'numeric variables, and',
     length(which(sapply(Main_DataFrame, is.factor))), 'categoric variables')
-############################################################################################################
-############################################################################################################
+
+##################################
+### Analyzing response feature ###
+##################################
+summary(Main_DataFrame$SalePrice)
+
+hist(Main_DataFrame$SalePrice)
+
+skew(Main_DataFrame$SalePrice)
+
+qqnorm(Main_DataFrame$SalePrice)
+qqline(Main_DataFrame$SalePrice)
+
+Main_DataFrame$SalePrice <- log(Main_DataFrame$SalePrice)
+
+skew(Main_DataFrame$SalePrice)
+
+qqnorm(Main_DataFrame$SalePrice)
+qqline(Main_DataFrame$SalePrice)
 
 ##################################
 ### ------ Correlation ------- ###
@@ -257,7 +281,7 @@ Corr_Num_Data <- cor(All_Num_Data, use="pairwise.complete.obs")
 Data_Sorted <- as.matrix(sort(Corr_Num_Data[,'SalePrice'], decreasing = TRUE))
 
 # Select only high correlations
-High_Corr <- names(which(apply(Data_Sorted, 1, function(x) abs(x) > 0.5)))
+High_Corr <- names(which(apply(Data_Sorted, 1, function(x) abs(x) > 0.3)))
 Corr_Table <- Corr_Num_Data[High_Corr, High_Corr]
 
 C <- cor(Corr_Table)
@@ -285,17 +309,21 @@ Main_DataFrame$Total_Sq_Feet_ <- Main_DataFrame$GrLivArea + Main_DataFrame$Total
 
 Main_DataFrame$Total_Home_Quality = Main_DataFrame$OverallQual + Main_DataFrame$OverallCond
 
-################################################################################################
+Main_DataFrame$Neighborhood_Class[Main_DataFrame$Neighborhood %in% c('StoneBr', 'NridgHt', 'NoRidge')] <- 2
+Main_DataFrame$Neighborhood_Class[!Main_DataFrame$Neighborhood %in% c('MeadowV', 'IDOTRR', 'BrDale',
+                                                             'StoneBr', 'NridgHt', 'NoRidge')] <- 1
+Main_DataFrame$Neighborhood_Class[Main_DataFrame$Neighborhood %in% c('MeadowV', 'IDOTRR', 'BrDale')] <- 0
+
+############################################################################################################
+############################################################################################################
 Drop_Cols <- c('YearRemodAdd', 'GarageYrBlt', 'GarageArea', 'GarageCond', 'TotalBsmtSF',
-               'TotalRmsAbvGrd', 'BsmtFinSF1', 'X1stFlrSF')
+               'TotalRmsAbvGrd', 'BsmtFinSF1', 'X1stFlrSF','Fireplaces')
 
 Main_DataFrame <- Main_DataFrame[,!(names(Main_DataFrame) %in% Drop_Cols)]
 rm(Drop_Cols)
 
-################################ Out liers ################################
-Main_DataFrame <- Main_DataFrame[-c(524, 1299),]
-
-################################################################################################
+############################################################################################################
+############################################################################################################
 Numeric_Vars <- names(which(sapply(Main_DataFrame, is.numeric)))
 
 DF_Numeric <- Main_DataFrame[, names(Main_DataFrame) %in% Numeric_Vars]
@@ -343,7 +371,8 @@ colnames(DF_Dummies[Few_Non_Zero])
 
 DF_Dummies <- DF_Dummies[,-Few_Non_Zero]
 
-################################################################################################
+############################################################################################################
+############################################################################################################
 All <- cbind(DFnorm, DF_Dummies) 
 rm(Numeric_Vars, DF_Factors, DF_Numeric, DF_Dummies, Few_Non_Zero, Zero_Test_Cols, Zero_Train_Cols, DFnorm)
 
@@ -354,7 +383,8 @@ Test_Data <- All[is.na(Main_DataFrame$SalePrice),]
 Test_Data$SalePrice <- NULL
 
 rm(Main_DataFrame, All)
-################################################################################################
+############################################################################################################
+############################################################################################################
 
 ##################################
 ### -------- Modeling -------- ###
@@ -363,6 +393,8 @@ RMSE <- function(x,y){
   a <- sqrt(sum((log(x)-log(y))^2)/length(y))
   return(a)
 }
+Actul <- exp(Train_Data$SalePrice)
+
 ################## Random Forest ##################
 x_cols <- grep("^SalePrice$", colnames(Train_Data), invert = TRUE)
 x <- Train_Data[, x_cols] 
@@ -370,27 +402,66 @@ x <- Train_Data[, x_cols]
 rf_model <- randomForest(x, Train_Data$SalePrice)
 
 rf_pred <- predict(rf_model, Test_Data)
+rf_pred <- exp(rf_pred)
 
 solution_rf <- data.frame(Id = Test_Data$Id, SalePrice = rf_pred)
 
-write.csv(solution_rf, file = 'RF_4_1__2_model.csv', row.names = F)
+write.csv(solution_rf, file = 'RF_model.csv', row.names = F)
 
-eval__ <- RMSE(rf_pred, Train_Data$SalePrice)
+eval__ <- RMSE(rf_pred, Actul)
+
+cat("Random Forest model Root mean squared error:", eval__, "\n")
 
 ################## Gradient Boosting ##################
-gbm_model <- gbm(SalePrice ~ ., data = Train_Data, n.trees = 1000, interaction.depth = 4, shrinkage = 0.01, 
+gbm_model <- gbm(SalePrice ~ ., data = Train_Data, n.trees = 1000, interaction.depth = 4, shrinkage = 0.05, 
                  n.minobsinnode = 10, cv.folds = 5, n.cores = 4, verbose = FALSE, distribution = 'gaussian')
 
 gbm_pred <- predict(gbm_model, newdata = Test_Data, n.trees = gbm_model$best.trees)
+gbm_pred <- exp(gbm_pred)
 
 solution_gbm <- data.frame(Id = Test_Data$Id, SalePrice = gbm_pred)
 
-write.csv(solution_gbm, file = 'GBM_2_1__Norm_model.csv', row.names = FALSE)
+write.csv(solution_gbm, file = 'GBM_1_.csv', row.names = FALSE)
 
-eval__2 <- RMSE(gbm_pred, Train_Data$SalePrice)
+eval__1 <- RMSE(gbm_pred, Actul)
 
-################## Model_3 ##################
+cat("GBM_1 Root mean squared error:", eval__1, "\n")
 
+################## Gradient Boosting 2 ##################
+gbm_model_2 <- gbm(SalePrice ~ ., data = Train_Data, n.trees = 1500, interaction.depth = 4, shrinkage = 0.05, 
+                 n.minobsinnode = 10, cv.folds = 5, n.cores = 4, verbose = FALSE, distribution = 'gaussian')
 
-################## Model_4 ##################
+gbm_pred_2 <- predict(gbm_model_2, newdata = Test_Data, n.trees = gbm_model$best.trees)
+gbm_pred_2 <- exp(gbm_pred_2)
 
+solution_gbm_2 <- data.frame(Id = Test_Data$Id, SalePrice = gbm_pred_2)
+
+write.csv(solution_gbm_2, file = 'GBM_2_.csv', row.names = FALSE)
+
+eval__2 <- RMSE(gbm_pred_2, Actul)
+
+cat("GBM_2 Root mean squared error:", eval__2, "\n")
+
+################## Gradient Boosting 3 ##################
+gbm_model_3 <- gbm(SalePrice ~ ., data = Train_Data, n.trees = 2000, interaction.depth = 4, shrinkage = 0.01, 
+                 n.minobsinnode = 10, cv.folds = 5, n.cores = 4, verbose = FALSE, distribution = 'gaussian')
+
+gbm_pred_3 <- predict(gbm_model_3, newdata = Test_Data, n.trees = gbm_model$best.trees)
+gbm_pred_3 <- exp(gbm_pred_3)
+
+solution_gbm_3 <- data.frame(Id = Test_Data$Id, SalePrice = gbm_pred_3)
+
+write.csv(solution_gbm_3, file = 'GBM_3_.csv', row.names = FALSE)
+
+eval__3 <- RMSE(gbm_pred_3, Actul)
+
+cat("GBM_3 Root mean squared error:", eval__3, "\n")
+
+################## Mean of GBM Models ##################
+solution_MM <- data.frame(Id = Test_Data$Id, SalePrice = (gbm_pred + gbm_pred_2 + gbm_pred_3) / 3)
+
+write.csv(solution_MM, file = 'M_M_GBM_1_2_3.csv', row.names = FALSE)
+
+eval__4 <- RMSE((gbm_pred + gbm_pred_2 + gbm_pred_3) / 3, Actul)
+
+cat("Mean of GBM Models Root mean squared error:", eval__4, "\n")
