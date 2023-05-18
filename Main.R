@@ -8,6 +8,7 @@ library(ggplot2)
 library(gbm)
 library(psych)
 library(caret)
+library(DataExplorer)
 
 ##################################
 ###------- Import Data --------###
@@ -25,19 +26,48 @@ rm(Train_Data, Test_Data)
 ##################################
 cat("Dataset shape:(", dim(Main_DataFrame),")")
 
-print("Dataset stucture:")
-
 str(Main_DataFrame)
 
 names(Main_DataFrame)
 
 summary(Main_DataFrame)
 
+cat('There are', length(which(sapply(Main_DataFrame, is.numeric))), 'numeric variables, and',
+    length(which(sapply(Main_DataFrame, is.character))), 'categoric variables')
+
 print("Missing or null values column wise")
 NA_Cols <- which(colSums(is.na(Main_DataFrame)) > 0)
 sort(colSums(sapply(Main_DataFrame[NA_Cols], is.na)), decreasing = TRUE)
 cat('There are', length(NA_Cols), 'columns with missing values')
 rm(NA_Cols)
+
+##################################
+###---- Data Visualization ----###
+##################################
+introduce(Main_DataFrame)
+
+plot_intro(Main_DataFrame)
+
+plot_str(Main_DataFrame)
+
+plot_missing(Main_DataFrame, missing_only = TRUE)
+
+plot_scatterplot(Main_DataFrame, by="SalePrice", nrow = 2L, ncol = 2L)
+
+##################################
+###- Analyzing target feature -###
+##################################
+summary(Main_DataFrame$SalePrice)
+
+ggplot(data = Main_DataFrame[!is.na(Main_DataFrame$SalePrice), ], aes(x = SalePrice)) +
+  geom_histogram(fill = "blue", binwidth = 10000) +
+  scale_x_continuous(breaks = seq(0, 800000, by = 100000),
+                     labels = function(x) format(x, scientific = FALSE, big.mark = ","))
+
+qqnorm(Main_DataFrame$SalePrice)
+qqline(Main_DataFrame$SalePrice)
+
+skew(Main_DataFrame$SalePrice)
 
 ##################################
 ###------- Missing Data -------###
@@ -250,17 +280,8 @@ cat('There are', length(which(sapply(Main_DataFrame, is.numeric))), 'numeric var
     length(which(sapply(Main_DataFrame, is.factor))), 'categoric variables')
 
 ##################################
-### Analyzing response feature ###
+###--- Fixing target feature --###
 ##################################
-summary(Main_DataFrame$SalePrice)
-
-hist(Main_DataFrame$SalePrice)
-
-skew(Main_DataFrame$SalePrice)
-
-qqnorm(Main_DataFrame$SalePrice)
-qqline(Main_DataFrame$SalePrice)
-
 Main_DataFrame$SalePrice <- log(Main_DataFrame$SalePrice)
 
 skew(Main_DataFrame$SalePrice)
@@ -421,14 +442,14 @@ gbm_pred <- exp(gbm_pred)
 
 solution_gbm <- data.frame(Id = Test_Data$Id, SalePrice = gbm_pred)
 
-write.csv(solution_gbm, file = 'GBM_1_.csv', row.names = FALSE)
+write.csv(solution_gbm, file = 'GBM_1_v2.csv', row.names = FALSE)
 
 eval__1 <- RMSE(gbm_pred, Actul)
 
 cat("GBM_1 Root mean squared error:", eval__1, "\n")
 
 ################## Gradient Boosting 2 ##################
-gbm_model_2 <- gbm(SalePrice ~ ., data = Train_Data, n.trees = 1500, interaction.depth = 4, shrinkage = 0.05, 
+gbm_model_2 <- gbm(SalePrice ~ ., data = Train_Data, n.trees = 1500, interaction.depth = 4, shrinkage = 0.07, 
                  n.minobsinnode = 10, cv.folds = 5, n.cores = 4, verbose = FALSE, distribution = 'gaussian')
 
 gbm_pred_2 <- predict(gbm_model_2, newdata = Test_Data, n.trees = gbm_model$best.trees)
@@ -436,14 +457,14 @@ gbm_pred_2 <- exp(gbm_pred_2)
 
 solution_gbm_2 <- data.frame(Id = Test_Data$Id, SalePrice = gbm_pred_2)
 
-write.csv(solution_gbm_2, file = 'GBM_2_.csv', row.names = FALSE)
+write.csv(solution_gbm_2, file = 'GBM_2_v2.csv', row.names = FALSE)
 
 eval__2 <- RMSE(gbm_pred_2, Actul)
 
 cat("GBM_2 Root mean squared error:", eval__2, "\n")
 
 ################## Gradient Boosting 3 ##################
-gbm_model_3 <- gbm(SalePrice ~ ., data = Train_Data, n.trees = 2000, interaction.depth = 4, shrinkage = 0.01, 
+gbm_model_3 <- gbm(SalePrice ~ ., data = Train_Data, n.trees = 2000, interaction.depth = 4, shrinkage = 0.05, 
                  n.minobsinnode = 10, cv.folds = 5, n.cores = 4, verbose = FALSE, distribution = 'gaussian')
 
 gbm_pred_3 <- predict(gbm_model_3, newdata = Test_Data, n.trees = gbm_model$best.trees)
@@ -451,7 +472,7 @@ gbm_pred_3 <- exp(gbm_pred_3)
 
 solution_gbm_3 <- data.frame(Id = Test_Data$Id, SalePrice = gbm_pred_3)
 
-write.csv(solution_gbm_3, file = 'GBM_3_.csv', row.names = FALSE)
+write.csv(solution_gbm_3, file = 'GBM_3_v2.csv', row.names = FALSE)
 
 eval__3 <- RMSE(gbm_pred_3, Actul)
 
@@ -460,7 +481,7 @@ cat("GBM_3 Root mean squared error:", eval__3, "\n")
 ################## Mean of GBM Models ##################
 solution_MM <- data.frame(Id = Test_Data$Id, SalePrice = (gbm_pred + gbm_pred_2 + gbm_pred_3) / 3)
 
-write.csv(solution_MM, file = 'M_M_GBM_1_2_3.csv', row.names = FALSE)
+write.csv(solution_MM, file = 'M_M_GBM_1_2_3_v2.csv', row.names = FALSE)
 
 eval__4 <- RMSE((gbm_pred + gbm_pred_2 + gbm_pred_3) / 3, Actul)
 
