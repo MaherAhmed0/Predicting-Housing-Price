@@ -96,6 +96,7 @@ cols_0 <- c('GarageYrBlt', 'GarageArea', 'GarageCars')
 
 Main_DataFrame[cols_0][is.na(Main_DataFrame[cols_0])] <- 0
 rm(cols_0)
+
 ##########################  GarageType, GarageFinish, GarageQual, GarageCond   ##########################
 cols_None <- c('GarageType', 'GarageFinish', 'GarageQual', 'GarageCond')
 
@@ -392,8 +393,9 @@ colnames(DF_Dummies[Few_Non_Zero])
 
 DF_Dummies <- DF_Dummies[,-Few_Non_Zero]
 
-############################################################################################################
-############################################################################################################
+##################################
+###  Prepare data for modeling ###
+##################################
 All <- cbind(DFnorm, DF_Dummies) 
 rm(Numeric_Vars, DF_Factors, DF_Numeric, DF_Dummies, Few_Non_Zero, Zero_Test_Cols, Zero_Train_Cols, DFnorm)
 
@@ -404,8 +406,6 @@ Test_Data <- All[is.na(Main_DataFrame$SalePrice),]
 Test_Data$SalePrice <- NULL
 
 rm(Main_DataFrame, All)
-############################################################################################################
-############################################################################################################
 
 ##################################
 ### -------- Modeling -------- ###
